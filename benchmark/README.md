@@ -8,7 +8,8 @@ JULIA_NUM_THREADS=1 BENCH_THREADS=1 julia --project=. benchmark/compare.jl
 ```
 
 The default deterministic fixture contains model-derived positive sequences on
-both strands, two copies in one contig, a repetitive negative and all-N input.
+both strands, two copies in one contig, a repetitive negative, all-N input, and
+a public NCBI 5S sequence embedded in a 5,000-base window (nine expected calls).
 Raw FASTA, GFF, nhmmer table, tool versions, SHA-256 hashes and repeated timings
 are saved under `benchmark/results/`. Supply a real genome as the first argument.
 Strict parity checks on real genomes may fail; retain the evidence and investigate

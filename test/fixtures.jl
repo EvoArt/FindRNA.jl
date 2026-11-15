@@ -12,6 +12,9 @@ function make_fixture(path)
         println(io,">two_16S\n", "N"^80,seqs[1],"N"^150,seqs[1],"N"^80)
         println(io,">negative\n", "ACGT"^500)
         println(io,">ambiguous\n", "N"^2000)
+        real_lines = readlines(joinpath(@__DIR__,"fixtures","pseudomonas-5s.fna"))
+        real_5s = join(filter(x -> !startswith(x,">"),real_lines))
+        println(io,">real_5S\n", "N"^2400,real_5s,"N"^2490)
     end
     ps,seqs
 end

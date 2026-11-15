@@ -10,7 +10,7 @@ include("fixtures.jl")
         _, seqs = make_fixture(path)
         r = findrna(path; progress=false)
         @test r isa RNAResult
-        @test length(r) == 8
+        @test length(r) == 9
         @test all(h -> h.target_name ∉ ("negative","ambiguous"),r)
         for p in ps, (suffix,strand) in (("forward",'+'),("reverse",'-'))
             hits = filter(h -> h.target_name == p.name * "_" * suffix && h.query_name == p.name,r)

@@ -64,7 +64,7 @@ within 30 bases. This is an explicit regression tolerance for the deterministic
 fixture, not a claim that all biological sequences agree within 30 bases.
 
 See [benchmark instructions](benchmark/README.md). Reference comparison failures
-are errors, never optional skips. Synthetic fixtures test predictable behaviour;
+are errors, never optional skips. Synthetic and real-sequence fixtures test predictable behaviour;
 real-genome and modern Barrnap comparisons are needed before a release claims
 biological parity. Timing reports distinguish first Julia call (including JIT),
 warmed Julia calls, and reference subprocess wall time.

@@ -4,9 +4,9 @@ mktempdir() do dir
     path = joinpath(dir,"fixture.fna")
     make_fixture(path)
     r = findrna(path;progress=false)
-    @assert length(r) == 8
+    @assert length(r) == 9
     write_gff(joinpath(dir,"out.gff"),r)
-    @assert length(parse_gff(joinpath(dir,"out.gff"))) == 8
+    @assert length(parse_gff(joinpath(dir,"out.gff"))) == 9
     @testset "Comparison round trip" begin
         compare_hits(r, parse_gff(joinpath(dir,"out.gff")))
     end

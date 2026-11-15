@@ -107,6 +107,9 @@ function benchmark_main()
     end
     opts = (progress=false,threaded=threads>1)
     cold = @elapsed hits = findrna(fasta;opts...)
+    println("FindRNA first call: ",cold," seconds, ",length(hits)," hits")
+    flush(stdout)
+    write_gff(joinpath(out,"findrna.gff"),hits)
     jt = [@elapsed(findrna(fasta;opts...)) for _ in 1:repeats]
     nt = [@elapsed(external(nhcmd,joinpath(out,"nhmmer.txt"),joinpath(out,"nhmmer.stderr"))) for _ in 1:repeats]
     bt = [@elapsed(external(bacmd,gff,joinpath(out,"barrnap.stderr"))) for _ in 1:repeats]
