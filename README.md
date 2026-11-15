@@ -48,6 +48,7 @@ Defaults follow barrnap 0.9:
 | `reject`    | `0.25`  | drop hits shorter than this fraction of the model |
 | `lencutoff` | `0.8`   | mark hits shorter than this fraction as `partial` |
 | `profiles`  | bacterial 16S/23S/5S | any HMMER3 nucleotide profile file |
+| `scoring`   | `:viterbi` | `:forward` rescores genes as nhmmer does (bits, bias and E-values within ~1 bit of nhmmer's; ~10% slower) |
 | `threaded`  | `true`  | use all Julia threads (start Julia with `-t auto`) |
 | `progress`  | interactive | progress bar; `FindRNA.setprogress!(false)` turns it off |
 
@@ -66,8 +67,9 @@ with the same profiles, with no extra or missing calls and endpoints within
 A 6.5 Mb genome takes about 2 s with 8 threads; the first call in a session
 is barely slower, because the package is precompiled.
 
-Bit scores are Viterbi scores and lack nhmmer's composition-bias correction,
-so they differ from nhmmer's by a few percent and E-values are approximate.
+By default bit scores are Viterbi scores without nhmmer's composition-bias correction,
+so they differ from nhmmer's by a few percent. With `scoring=:forward` FindRNA rescores
+each gene exactly as nhmmer does, and bits and bias agree with nhmmer's to about a bit.
 Modern barrnap (1.x) uses Infernal covariance models instead; its calls are
 compared but not required to agree.
 

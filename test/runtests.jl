@@ -88,3 +88,19 @@ end
         @test !findrna(path; models=["16S_rRNA"], lencutoff=0.4, progress=false)[1].partial
     end
 end
+
+@testset "nhmmer-style scoring (scoring=:forward)" begin
+    mktempdir() do dir
+        path = joinpath(dir, "fixture.fna")
+        make_fixture(path)
+        vit = findrna(path; progress=false)
+        fwd = findrna(path; progress=false, scoring=:forward)
+        key(h) = (h.seqid, h.model, h.start, h.stop, h.strand)
+        @test key.(fwd) == key.(vit)
+        @test all(h -> h.bias == 0, vit) && all(h -> h.bias >= 0, fwd)
+        # nhmmer 3.4 scores this 5S (CP148752.1:116377-116486) at 51.6 bits.
+        real5s = only(filter(h -> h.seqid == "real_5S", fwd))
+        @test abs(real5s.bits - 51.6) <= 2
+        @test_throws ArgumentError findrna(path; progress=false, scoring=:fast)
+    end
+end

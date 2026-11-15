@@ -9,7 +9,7 @@ function parse_nhmmer(path)
         p = split(line)
         a,b = parse.(Int,p[7:8])
         push!(rows,(target=String(p[1]), model=String(p[3]), strand=only(p[12]),
-                    start=min(a,b), stop=max(a,b), bits=parse(Float64,p[14])))
+                    start=min(a,b), stop=max(a,b), bits=parse(Float64,p[14]), bias=parse(Float64,p[15])))
     end
     rows
 end
@@ -73,6 +73,33 @@ function write_differences(path, got, refs)
     end
 end
 
+# Forward-mode bits and bias against nhmmer's, per matched hit: they use the
+# same scoring, so they should agree to within about a bit.
+function matched_scores(got, refs)
+    map(refs) do r
+        i = findfirst(h -> (h.seqid, h.model, h.strand) == (r.target, r.model, r.strand) &&
+                           abs(h.start - r.start) <= 10 && abs(h.stop - r.stop) <= 10, got)
+        (r, i === nothing ? nothing : got[i])
+    end
+end
+function compare_scores(got, refs; tolerance=2.0)
+    for (r, h) in matched_scores(got, refs)
+        @test h !== nothing
+        h === nothing && continue
+        @test abs(h.bits - r.bits) <= tolerance
+        @test abs(h.bias - r.bias) <= tolerance
+    end
+end
+function write_scores(path, got, refs)
+    open(path, "w") do io
+        println(io, "target	model	strand	start	nhmmer_bits	findrna_bits	nhmmer_bias	findrna_bias")
+        for (r, h) in matched_scores(got, refs)
+            println(io, join((r.target, r.model, r.strand, r.start, r.bits, h === nothing ? "" : round(h.bits, digits=1),
+                              r.bias, h === nothing ? "" : round(h.bias, digits=1)), '	'))
+        end
+    end
+end
+
 function median_time(xs)
     s = sort(xs); n = length(s)
     isodd(n) ? s[cld(n,2)] : (s[n÷2]+s[n÷2+1])/2
@@ -111,6 +138,8 @@ function benchmark_main()
     flush(stdout)
     write_gff(joinpath(out,"findrna.gff"),hits)
     jt = [@elapsed(findrna(fasta;opts...)) for _ in 1:repeats]
+    fwd = findrna(fasta;opts...,scoring=:forward)        # nhmmer-style rescoring
+    ft = [@elapsed(findrna(fasta;opts...,scoring=:forward)) for _ in 1:repeats]
     nt = [@elapsed(external(nhcmd,joinpath(out,"nhmmer.txt"),joinpath(out,"nhmmer.stderr"))) for _ in 1:repeats]
     bt = [@elapsed(external(bacmd,gff,joinpath(out,"barrnap.stderr"))) for _ in 1:repeats]
     write_gff(joinpath(out,"findrna.gff"),hits)
@@ -119,18 +148,21 @@ function benchmark_main()
     write_differences(joinpath(out,"barrnap-differences.tsv"),hits,br)
     report = Dict("julia"=>string(VERSION),"threads"=>threads,"repeats"=>repeats,
         "cpu"=>Sys.CPU_NAME,"machine"=>Sys.MACHINE,
-        "engine_source_sha256"=>bytes2hex(sha256(read(joinpath(dirname(pathof(ProfileHMMs)),"Algorithms.jl")))),
+        "engine_source_sha256"=>bytes2hex(sha256(join(read.(sort(readdir(dirname(pathof(ProfileHMMs));join=true)),String)))),
         "input_sha256"=>bytes2hex(sha256(read(fasta))),"model_sha256"=>bytes2hex(sha256(read(hmm))),
-        "findrna_first_call_seconds"=>cold,"findrna_warm_seconds"=>jt,
+        "findrna_first_call_seconds"=>cold,"findrna_warm_seconds"=>jt,"findrna_forward_warm_seconds"=>ft,
         "nhmmer_process_seconds"=>nt,"barrnap_process_seconds"=>bt,
         "findrna_hits"=>length(hits),"nhmmer_hits"=>length(refs),"barrnap_hits"=>length(br))
     open(joinpath(out,"timings.toml"),"w") do io; TOML.print(io,report); end
-    println("Median seconds: FindRNA warm=",median_time(jt),"; nhmmer=",median_time(nt),"; barrnap=",median_time(bt))
+    write_scores(joinpath(out,"nhmmer-scores.tsv"),fwd,refs)
+    println("Median seconds: FindRNA warm=",median_time(jt),"; forward=",median_time(ft),"; nhmmer=",median_time(nt),"; barrnap=",median_time(bt))
     if get(ENV,"BARRNAP_MODERN","false") == "true"
         # Different models/algorithms: report all raw calls; no fabricated parity.
         @testset "HMMER reference" begin
             @test !isempty(refs)
             compare_hits(hits,refs)
+            compare_hits(fwd,refs)
+            compare_scores(fwd,refs)
         end
         if isempty(ARGS)
             @testset "Modern Barrnap synthetic fixture" begin
@@ -147,6 +179,8 @@ function benchmark_main()
             @test !isempty(br)
             compare_hits(hits,refs)
             compare_hits(hits,br)
+            compare_hits(fwd,refs)
+            compare_scores(fwd,refs)
         end
     end
 end

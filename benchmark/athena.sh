@@ -35,8 +35,12 @@ julia --startup-file=no --project=. scripts/develop.jl
 benchmark/fetch_genomes.sh genomes
 out="benchmark/results/athena-$SLURM_JOB_ID"
 failed=0
-for variant in 0.9 modern; do
-    if [ "$variant" = 0.9 ]; then
+# 4 threads for both barrnap versions, then single-threaded (0.9 only) for
+# a one-core comparison with nhmmer --cpu 1.
+for variant in 0.9 modern t1-0.9; do
+    t=$SLURM_CPUS_PER_TASK; [ "$variant" = t1-0.9 ] && t=1
+    export JULIA_NUM_THREADS=$t BENCH_THREADS=$t
+    if [ "$variant" != modern ]; then
         export BARRNAP="$TOOLS/barrnap-0.9/bin/barrnap" BARRNAP_MODERN=false
         export PATH="$TOOLS/bin:$TOOLS/deps/bin:$base_path"
     else

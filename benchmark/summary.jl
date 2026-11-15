@@ -15,13 +15,14 @@ function tally(path)
 end
 
 root = isempty(ARGS) ? joinpath(@__DIR__, "results") : ARGS[1]
-println("| run | FindRNA first / warm (s) | nhmmer (s) | barrnap (s) | vs nhmmer: matched / endpoints >10 bp / missing / extra | vs barrnap |")
+println("| run | FindRNA first / warm / forward (s) | nhmmer (s) | barrnap (s) | vs nhmmer: matched / endpoints >10 bp / missing / extra | vs barrnap |")
 println("|---|---|---|---|---|---|")
 for d in sort(readdir(root; join=true))
     f = joinpath(d, "timings.toml"); isfile(f) || continue
     t = TOML.parsefile(f)
     r(x) = string(round(x; digits=2))
-    println("| ", basename(d), " | ", r(t["findrna_first_call_seconds"]), " / ", r(med(t["findrna_warm_seconds"])),
+    fw = haskey(t, "findrna_forward_warm_seconds") ? r(med(t["findrna_forward_warm_seconds"])) : "–"
+    println("| ", basename(d), " | ", r(t["findrna_first_call_seconds"]), " / ", r(med(t["findrna_warm_seconds"])), " / ", fw,
             " | ", r(med(t["nhmmer_process_seconds"])), " | ", r(med(t["barrnap_process_seconds"])),
             " | ", tally(joinpath(d, "nhmmer-differences.tsv")), " | ", tally(joinpath(d, "barrnap-differences.tsv")), " |")
 end

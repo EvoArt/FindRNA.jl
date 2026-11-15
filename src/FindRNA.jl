@@ -21,7 +21,8 @@ export default_profiles, setprogress!
 
 One predicted RNA. `start:stop` are 1-based inclusive coordinates on the input
 sequence `seqid`; `strand` is `'+'` or `'-'`. `partial` marks a hit shorter
-than `lencutoff` of the model length.
+than `lencutoff` of the model length. `bias` is the composition-bias correction
+already subtracted from `bits` (computed only with `scoring=:forward`; else 0).
 """
 struct RNAHit
     seqid::String
@@ -30,6 +31,7 @@ struct RNAHit
     stop::Int
     strand::Char
     bits::Float64
+    bias::Float64
     evalue::Float64
     partial::Bool
 end
@@ -66,6 +68,10 @@ Find rRNA genes on both strands of every sequence in `fasta`.
 - `reject`: drop hits shorter than this fraction of the model (`--reject`).
 - `lencutoff`: mark hits shorter than this fraction as `partial` (`--lencutoff`).
 - `profiles`: a HMMER3 nucleotide profile file, for other RNA families.
+- `scoring`: `:viterbi` (default, fastest) scores each gene by its best
+  alignment. `:forward` rescores it as nhmmer (and so barrnap 0.9) does:
+  Forward score with composition-bias correction and Forward-calibrated
+  E-values, giving bits and E-values within about a bit of nhmmer's.
 
 Further keywords (`seed_bits`, `db_size`) go to `ProfileHMMs.scan_fasta`.
 Returns an [`RNAResult`](@ref): a vector of [`RNAHit`](@ref) and a Tables.jl table.
@@ -82,7 +88,7 @@ function findrna(fasta::AbstractString; profiles=default_profiles(), models=noth
         len = h.target_end - h.target_start + 1
         len < floor(Int, reject * M) && continue
         push!(hits, RNAHit(h.target_name, h.query_name, h.target_start, h.target_end,
-                           h.strand, h.bit_score, h.evalue, len < floor(Int, lencutoff * M)))
+                           h.strand, h.bit_score, h.bias, h.evalue, len < floor(Int, lencutoff * M)))
     end
     RNAResult(hits, abspath(fasta))
 end
