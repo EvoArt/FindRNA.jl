@@ -64,7 +64,8 @@ GC 58–68%), FindRNA reports the same 69 genes as nhmmer 3.4 and barrnap 0.9
 with the same profiles, with no extra or missing calls and endpoints within
 6 bp. CI checks this on every push; see [benchmark/](benchmark/README.md).
 
-A 6.5 Mb genome takes about 2 s with 8 threads; the first call in a session
+A 6.8 Mb genome takes about 1 s with 4 threads (1.5 s on one), 4–6 times
+faster than nhmmer with the same threads; the first call in a session
 is barely slower, because the package is precompiled.
 
 By default bit scores are Viterbi scores without nhmmer's composition-bias correction,
