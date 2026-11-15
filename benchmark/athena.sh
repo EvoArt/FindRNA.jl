@@ -25,7 +25,11 @@ if [ ! -x "$TOOLS/modern/bin/barrnap" ]; then
     "$HOME/miniforge3/bin/conda" create -y --override-channels -c conda-forge -c bioconda \
         -p "$TOOLS/modern" barrnap=1.10.6 hmmer=3.4
 fi
+if [ ! -x "$TOOLS/deps/bin/bedtools" ]; then     # barrnap 0.9 needs bedtools
+    "$HOME/miniforge3/bin/conda" create -y --override-channels -c conda-forge -c bioconda -p "$TOOLS/deps" bedtools
+fi
 export NHMMER="$TOOLS/bin/nhmmer"
+base_path="$PATH"
 export JULIA_NUM_THREADS="$SLURM_CPUS_PER_TASK" BENCH_THREADS="$SLURM_CPUS_PER_TASK" BENCH_REPEATS=3
 julia --startup-file=no --project=. scripts/develop.jl
 benchmark/fetch_genomes.sh genomes
@@ -34,9 +38,10 @@ failed=0
 for variant in 0.9 modern; do
     if [ "$variant" = 0.9 ]; then
         export BARRNAP="$TOOLS/barrnap-0.9/bin/barrnap" BARRNAP_MODERN=false
-        export PATH="$TOOLS/bin:$PATH"
+        export PATH="$TOOLS/bin:$TOOLS/deps/bin:$base_path"
     else
         export BARRNAP="$TOOLS/modern/bin/barrnap" BARRNAP_MODERN=true
+        export PATH="$TOOLS/modern/bin:$base_path"   # its own perl and Infernal
     fi
     FINDRNA_RESULTS="$out/$variant-synthetic" julia --startup-file=no --project=. benchmark/compare.jl || failed=1
     for genome in genomes/*.fasta; do

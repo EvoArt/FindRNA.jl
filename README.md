@@ -1,76 +1,86 @@
 # FindRNA.jl
 
-Find bacterial ribosomal RNA in FASTA files from a native Julia session on
-Windows, macOS or Linux. Intended for small interactive analyses in VS Code
-as well as scripts, with the display and progress conventions of DenoiseDNA
-and AssignTaxonomy.
-
-**Development version; not yet registered.** The search engine is the separate
-Julia package [ProfileHMMs](packages/ProfileHMMs), with its own project, tests
-and license. This repository contains both packages; neither needs a HMMER
-executable at runtime.
-
-## Try it locally
-
-From this checkout, run `julia --project=. scripts/develop.jl` once. Then:
+Find ribosomal RNA genes in genomes and assemblies, as
+[barrnap](https://github.com/tseemann/barrnap) does, from a plain Julia session:
+no HMMER, Perl or WSL, so it works the same on Windows, macOS and Linux. It is
+meant for the occasional handful of genomes in an interactive (e.g. VS Code)
+session as much as for scripts, and fits alongside
+[DenoiseDNA.jl](https://github.com/EvoArt/DenoiseDNA.jl) and
+[AssignTaxonomy.jl](https://github.com/EvoArt/AssignTaxonomy.jl).
 
 ```julia
 using FindRNA
-hits = findrna("assembly.fna")
-hits16s = findrna("assembly.fna"; models=["16S_rRNA"])
-sequences = extract_sequences(hits16s)  # Vector{LongDNA{4}}, oriented to the RNA
-write_fasta("16S.fasta", hits16s)
-write_gff("rna.gff", hits)
-FindRNA.setprogress!(false)             # or progress=false on a single call
+hits = findrna("genome.fna")                     # 16S, 23S and 5S on both strands
+```
+```
+RNAResult · 25 RNA hits
+  source      genome.fna
+  models      16S_rRNA × 8, 23S_rRNA × 8, 5S_rRNA × 9
+  sequence    model         coordinates  strand    bits
+  CP148752.1  16S_rRNA    111206:112737       +  1393.8
+  CP148752.1  23S_rRNA    113330:116223       +  2556.1
+  …
 ```
 
-Results support iteration, indexing and the Tables.jl interface:
-`DataFrame(hits)` works when DataFrames is loaded. Pass the extracted sequences
-to AssignTaxonomy's `assign_taxonomy(sequences, reference)` workflow; FindRNA
-does not force a dependency on the classifier or DenoiseDNA. It operates on
-DNA FASTA input, including sequences exported by other tools.
+```julia
+hits16 = findrna("genome.fna"; models=["16S_rRNA"])
+seqs = extract_sequences(hits16)                 # Vector{LongDNA{4}}, 5'→3' along the RNA
+write_fasta("16S.fasta", hits16)
+write_gff("rrna.gff", hits)                      # barrnap-style GFF3
 
-The bundled models cover bacterial 16S, 23S and 5S. Supply `profiles="custom.hmm"`
-for another HMMER3 nucleotide profile database. Protein HMMs are rejected.
-The name leaves room for other RNA profiles; this is not a tRNA predictor or
-a replacement for modern Barrnap's complete annotation pipeline.
+using DataFrames; DataFrame(hits)                # results are a Tables.jl table
 
-## Search behaviour and limits
+using AssignTaxonomy                             # classify the 16S genes
+assign_taxonomy(seqs, hit_ids(hits16), "rdp_train_set.fa")
+```
 
-Coordinates are 1-based, inclusive, on the original FASTA sequence. Both strands
-are searched. Repeated non-overlapping copies are recovered by searching the
-remaining flanks. Long sequences use overlapping windows; each window owns its
-results, allowing parallel scans without indexing by a thread-pool ID.
-Default window sizes scale with model length; custom windows must satisfy
-`window > overlap >= 0`. Choose an overlap long enough to contain the expected
-RNA. Overlapping calls from adjacent windows retain the best-scoring alignment.
+Each `RNAHit` has `seqid`, `model`, `start`, `stop` (1-based, inclusive, on the
+input sequence), `strand`, `bits`, `evalue` and `partial`.
 
-The engine computes local single-hit Viterbi alignments and uses an ungapped
-prefilter. It does **not** implement HMMER's Forward/domain pipeline, composition
-bias corrections or Infernal covariance models. Reported E-values are approximate
-Viterbi tail probabilities scaled by `db_size` (default 1), not calibrated
-whole-database nhmmer E-values. Ambiguous bases have neutral emission odds.
-Set `msv_threshold=Inf` to bypass the heuristic prefilter when investigating
-sensitivity. Do not assume differences from HMMER are merely floating-point
-rounding or implementation-language effects.
+## Options
 
-## Tests and comparisons
+Defaults follow barrnap 0.9:
 
-`julia --project=. --threads=2,1 scripts/test.jl` tests both packages. CI runs
-Julia 1.10 and current stable on Windows, Linux and macOS. A separate Linux job
-compares against HMMER 3.4 and barrnap 0.9 using identical nucleotide models.
-It checks model/sequence identity, strand, one-to-one hit counts and endpoints
-within 30 bases. This is an explicit regression tolerance for the deterministic
-fixture, not a claim that all biological sequences agree within 30 bases.
+| keyword     | default | meaning |
+|-------------|---------|---------|
+| `models`    | all     | profiles to search, e.g. `["16S_rRNA"]` |
+| `evalue`    | `1e-6`  | report hits with E-value at most this |
+| `reject`    | `0.25`  | drop hits shorter than this fraction of the model |
+| `lencutoff` | `0.8`   | mark hits shorter than this fraction as `partial` |
+| `profiles`  | bacterial 16S/23S/5S | any HMMER3 nucleotide profile file |
+| `threaded`  | `true`  | use all Julia threads (start Julia with `-t auto`) |
+| `progress`  | interactive | progress bar; `FindRNA.setprogress!(false)` turns it off |
 
-See [benchmark instructions](benchmark/README.md). Reference comparison failures
-are errors, never optional skips. Synthetic and real-sequence fixtures test predictable behaviour;
-real-genome and modern Barrnap comparisons are needed before a release claims
-biological parity. Timing reports distinguish first Julia call (including JIT),
-warmed Julia calls, and reference subprocess wall time.
+The bundled profiles are barrnap 0.9's bacterial models (from Rfam). Archaeal,
+mitochondrial or eukaryotic HMMER3 profiles can be passed with `profiles`.
 
-## Licensing
+## Accuracy and speed
 
-Julia code: MIT. Rfam model data: CC0, with source and checksum in
-[data/README.md](data/README.md). Research data, downloaded tools, old experiments
-and local manifests are excluded from version control.
+Searches use [ProfileHMMs.jl](https://github.com/EvoArt/ProfileHMMs.jl), a
+native Julia implementation of the nhmmer pipeline: SIMD ungapped seeds, then
+local Viterbi alignment around them. On five bacterial genomes (3.7–6.8 Mb,
+GC 58–68%), FindRNA reports the same 69 genes as nhmmer 3.4 and barrnap 0.9
+with the same profiles, with no extra or missing calls and endpoints within
+6 bp. CI checks this on every push; see [benchmark/](benchmark/README.md).
+
+A 6.5 Mb genome takes about 2 s with 8 threads; the first call in a session
+is barely slower, because the package is precompiled.
+
+Bit scores are Viterbi scores and lack nhmmer's composition-bias correction,
+so they differ from nhmmer's by a few percent and E-values are approximate.
+Modern barrnap (1.x) uses Infernal covariance models instead; its calls are
+compared but not required to agree.
+
+## Installation
+
+```julia
+using Pkg
+Pkg.add("FindRNA")
+```
+
+Until ProfileHMMs and FindRNA are registered, run `julia --project=. scripts/develop.jl`
+in a checkout of this repository.
+
+## Licence
+
+Code: MIT. Rfam model data: CC0; see [data/README.md](data/README.md).

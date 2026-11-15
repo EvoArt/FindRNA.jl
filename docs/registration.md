@@ -1,27 +1,15 @@
-# Registration order
+# Registration
 
-Both packages have new UUIDs, explicit dependency compatibility bounds, tests,
-README files and their own copies of the MIT license. Find16S was an unregistered
-prototype; its scratch data and original source are retained locally in ignored
-files. This repository uses Julia's supported subdirectory-package layout.
+ProfileHMMs (github.com/EvoArt/ProfileHMMs.jl) must be in General before
+FindRNA, which depends on it.
 
-1. Validate the intended commit in CI and inspect the real-genome comparison
-   reports. Do not treat missing calls as harmless language-level differences.
-2. Register ProfileHMMs first by commenting on that commit:
-   `@JuliaRegistrator register subdir=packages/ProfileHMMs`
-3. Wait for ProfileHMMs to merge into General. New packages normally have a
-   three-day review window. This dependency must be registered before FindRNA
-   can resolve through the registry.
-4. Register the root package with `@JuliaRegistrator register` on the validated
-   FindRNA commit, then check General's AutoMerge output.
-5. TagBot creates `ProfileHMMs-v0.1.0` for the subpackage and `v0.1.0` for FindRNA
-   after registration; do not manufacture a successful registration by tagging
-   before the registry merge.
-
-Registrator must have access to this repository. A commit comment alone is not
-proof of registration: retain the resulting General pull-request URL and status.
-
-References:
-- https://github.com/JuliaRegistries/Registrator.jl#registering-a-package-in-a-subdirectory
-- https://github.com/JuliaRegistries/General#automatic-merging-of-pull-requests
-- https://github.com/JuliaRegistries/TagBot#subdirectory-packages
+1. Register ProfileHMMs: comment `@JuliaRegistrator register` on the tested
+   commit of ProfileHMMs.jl. New packages wait three days in General.
+2. After ProfileHMMs is merged, check that this repository's CI passes against
+   the registered version (`scripts/develop.jl` is then unnecessary; delete it
+   and run `Pkg.test()` directly), then comment `@JuliaRegistrator register` on
+   that FindRNA commit.
+3. AutoMerge will flag the name FindRNA as close to the registered FoldRNA
+   (Damerau–Levenshtein distance 2). Reply on the General PR explaining the
+   difference (rRNA gene finding vs RNA folding) and ask for a manual merge.
+4. TagBot tags each release once its registry PR is merged.
