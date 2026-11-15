@@ -28,6 +28,8 @@ The synthetic fixture holds model-consensus sequences on both strands, two
 copies in one contig, a repetitive negative, an all-N sequence, and a public
 5S sequence (NCBI CP148752.1:116377-116486) inside a 5 kb window.
 
+Latest Athena run: [athena-results.md](athena-results.md).
+
 CI (`.github/workflows/CI.yml`) runs the fixture and the five genomes on every
 push. `athena.sh` runs both barrnap versions on the University of Exeter Athena
 cluster: `sbatch benchmark/athena.sh` from a checkout.

@@ -6,14 +6,16 @@ med(xs) = (s = sort(Float64.(xs)); n = length(s); isodd(n) ? s[cld(n, 2)] : (s[n
 
 function tally(path)
     isfile(path) || return "–"
-    st = [split(l, '\t')[end] for l in readlines(path)[2:end]]
-    e = [parse(Int, split(l, '\t')[8]) for l in readlines(path)[2:end] if split(l, '\t')[end] == "matched"]
-    "$(count(==("matched"), st)) / $(count(==("missing"), st)) / $(count(==("extra"), st))" *
+    rows = [split(l, '	') for l in readlines(path)[2:end]]
+    st = last.(rows)
+    e = [parse(Int, r[8]) for r in rows if r[end] in ("matched", "coordinates")]
+    n(x) = count(==(x), st)
+    "$(n("matched")) / $(n("coordinates")) / $(n("missing")) / $(n("extra"))" *
         (isempty(e) ? "" : " (≤$(maximum(e)) bp)")
 end
 
 root = isempty(ARGS) ? joinpath(@__DIR__, "results") : ARGS[1]
-println("| run | FindRNA first / warm (s) | nhmmer (s) | barrnap (s) | vs nhmmer: matched / missing / extra | vs barrnap |")
+println("| run | FindRNA first / warm (s) | nhmmer (s) | barrnap (s) | vs nhmmer: matched / endpoints >10 bp / missing / extra | vs barrnap |")
 println("|---|---|---|---|---|---|")
 for d in sort(readdir(root; join=true))
     f = joinpath(d, "timings.toml"); isfile(f) || continue
