@@ -115,6 +115,8 @@ function benchmark_main()
     write_differences(joinpath(out,"nhmmer-differences.tsv"),hits,refs)
     write_differences(joinpath(out,"barrnap-differences.tsv"),hits,br)
     report = Dict("julia"=>string(VERSION),"threads"=>threads,"repeats"=>repeats,
+        "cpu"=>Sys.CPU_NAME,"machine"=>Sys.MACHINE,
+        "engine_source_sha256"=>bytes2hex(sha256(read(joinpath(dirname(pathof(ProfileHMMs)),"Algorithms.jl")))),
         "input_sha256"=>bytes2hex(sha256(read(fasta))),"model_sha256"=>bytes2hex(sha256(read(hmm))),
         "findrna_first_call_seconds"=>cold,"findrna_warm_seconds"=>jt,
         "nhmmer_process_seconds"=>nt,"barrnap_process_seconds"=>bt,

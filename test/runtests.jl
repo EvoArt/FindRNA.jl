@@ -39,3 +39,18 @@ include("fixtures.jl")
         @test isempty(extract_sequences(empty))
     end
 end
+
+@testset "Short real RNA inside a long window" begin
+    # NCBI CP148752.1:116377-116486, a 5S locus missed without null-length scoring.
+    lines = readlines(joinpath(@__DIR__,"fixtures","pseudomonas-5s.fna"))
+    s = LongDNA{4}(join(filter(x -> !startswith(x,">"),lines)))
+    @test length(s) == 110
+    h = build_plan7(parse_hmm_file(default_profiles())[3]; target_length=2000)
+    padded = LongDNA{4}("N"^2400 * String(s) * "N"^2490)
+    hits = search_sequence(h,padded)
+    @test length(hits) == 1
+    if length(hits) == 1
+        @test hits[1].strand == '+'
+        @test (hits[1].target_start,hits[1].target_end) == (2401,2510)
+    end
+end

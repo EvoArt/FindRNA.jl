@@ -13,13 +13,14 @@ if [ ! -x tools/modern/bin/barrnap ]; then
 fi
 export PATH="$HOME/julia-1.12.7/bin:$PWD/tools/modern/bin:$PATH"
 export BARRNAP="$PWD/tools/modern/bin/barrnap"
-export NHMMER="$PWD/tools/bin/nhmmer"
+reference="${ATHENA_REFERENCE_ROOT:-$HOME/findrna-20261115}"
+export NHMMER="$reference/tools/bin/nhmmer"
 export BARRNAP_MODERN=true
 export JULIA_NUM_THREADS=4 BENCH_THREADS=4 BENCH_REPEATS=3
 export FINDRNA_RESULTS="$PWD/benchmark/results/modern-synthetic"
 julia --startup-file=no --project=. benchmark/compare.jl
 failed=0
-for genome in genomes/*.fasta; do
+for genome in "$reference"/genomes/*.fasta; do
     [ -f "$genome" ] || continue
     export FINDRNA_RESULTS="$PWD/benchmark/results/modern-$(basename "$genome" .fasta)"
     julia --startup-file=no --project=. benchmark/compare.jl "$genome" || failed=1
