@@ -1,7 +1,6 @@
-* text=auto
+* text=auto eol=lf
 *.jl text eol=lf
 *.sh text eol=lf
-*.sbatch text eol=lf
 *.yml text eol=lf
 # Preserve upstream model bytes and checksums, including header whitespace.
 data/bac.hmm -text whitespace=-blank-at-eol

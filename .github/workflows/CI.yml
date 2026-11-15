@@ -23,37 +23,53 @@ jobs:
           version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v2
       - run: julia --startup-file=no --project=. scripts/develop.jl
-      - run: julia --startup-file=no --project=. scripts/test.jl
+      - run: julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
+
+  # Same input and profiles for all three tools. One-to-one hit identity,
+  # strand and endpoints within 10 bp are asserted, on a synthetic fixture and
+  # on five public bacterial genomes downloaded from NCBI.
   reference:
     runs-on: ubuntu-latest
     env:
-      JULIA_NUM_THREADS: '1'
-      BENCH_THREADS: '1'
-      BENCH_REPEATS: '3'
+      JULIA_NUM_THREADS: '2'
+      BENCH_THREADS: '2'
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.10'
+          version: '1'
       - uses: julia-actions/cache@v2
-      - name: Install pinned HMMER and barrnap references
+      - name: Install HMMER 3.4 and barrnap 0.9
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y build-essential bedtools
           curl -fsSL https://eddylab.org/software/hmmer/hmmer-3.4.tar.gz -o /tmp/hmmer.tar.gz
           echo 'ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3  /tmp/hmmer.tar.gz' | sha256sum -c -
           tar -xzf /tmp/hmmer.tar.gz -C /tmp
-          cd /tmp/hmmer-3.4
-          ./configure --prefix="$HOME/hmmer"
-          make -j2
-          make install
+          (cd /tmp/hmmer-3.4 && ./configure --prefix="$HOME/hmmer" && make -j4 && make install)
           echo "$HOME/hmmer/bin" >> "$GITHUB_PATH"
           git clone --depth 1 --branch 0.9 https://github.com/tseemann/barrnap.git "$HOME/barrnap"
           echo "$HOME/barrnap/bin" >> "$GITHUB_PATH"
       - run: julia --startup-file=no --project=. scripts/develop.jl
-      - run: julia --startup-file=no --project=. benchmark/compare.jl
+      - name: Synthetic fixture
+        run: julia --startup-file=no --project=. benchmark/compare.jl
+        env:
+          FINDRNA_RESULTS: benchmark/results/synthetic
+          BENCH_REPEATS: '3'
+      - name: Five public bacterial genomes
+        shell: bash
+        env:
+          BENCH_REPEATS: '1'
+        run: |
+          set -euo pipefail
+          benchmark/fetch_genomes.sh genomes
+          failed=0
+          for g in genomes/*.fasta; do
+            FINDRNA_RESULTS="benchmark/results/$(basename "$g" .fasta)" \
+              julia --startup-file=no --project=. benchmark/compare.jl "$g" || failed=1
+          done
+          julia --startup-file=no --project=. benchmark/summary.jl benchmark/results | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

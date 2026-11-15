@@ -28,18 +28,18 @@ function parse_gff(path)
     rows
 end
 
-function compare_hits(got, ref; coordinate_tolerance=30)
+function compare_hits(got, ref; coordinate_tolerance=10)
     # One-to-one matching: an extra call fails just as a missing call does.
     unmatched = collect(eachindex(got))
     deltas = Int[]
     for r in ref
         candidates = filter(unmatched) do i
             h = got[i]
-            h.target_name == r.target && h.query_name == r.model && h.strand == r.strand
+            h.seqid == r.target && h.model == r.model && h.strand == r.strand
         end
         @test !isempty(candidates)
         isempty(candidates) && continue
-        errors = [max(abs(got[i].target_start-r.start),abs(got[i].target_end-r.stop)) for i in candidates]
+        errors = [max(abs(got[i].start-r.start),abs(got[i].stop-r.stop)) for i in candidates]
         k = argmin(errors); i = candidates[k]
         @test errors[k] <= coordinate_tolerance
         push!(deltas,errors[k]); filter!(!=(i),unmatched)
@@ -53,22 +53,22 @@ function write_differences(path, got, refs)
     open(path,"w") do io
         println(io,"target\tmodel\tstrand\treference_start\treference_end\tjulia_start\tjulia_end\tendpoint_error\tjulia_bits\treference_bits\tstatus")
         for r in refs
-            candidates = filter(i -> (got[i].target_name,got[i].query_name,got[i].strand) ==
+            candidates = filter(i -> (got[i].seqid,got[i].model,got[i].strand) ==
                                      (r.target,r.model,r.strand),remaining)
             if isempty(candidates)
                 println(io,join((r.target,r.model,r.strand,r.start,r.stop,"","","","",r.bits,"missing"),'\t'))
                 continue
             end
-            errs = [max(abs(got[i].target_start-r.start),abs(got[i].target_end-r.stop)) for i in candidates]
+            errs = [max(abs(got[i].start-r.start),abs(got[i].stop-r.stop)) for i in candidates]
             k = argmin(errs); i = candidates[k]; h = got[i]
             filter!(!=(i),remaining)
-            println(io,join((r.target,r.model,r.strand,r.start,r.stop,h.target_start,h.target_end,
-                            errs[k],h.bit_score,r.bits,errs[k]<=30 ? "matched" : "coordinates"),'\t'))
+            println(io,join((r.target,r.model,r.strand,r.start,r.stop,h.start,h.stop,
+                            errs[k],h.bits,r.bits,errs[k]<=10 ? "matched" : "coordinates"),'\t'))
         end
         for i in remaining
             h = got[i]
-            println(io,join((h.target_name,h.query_name,h.strand,"","",h.target_start,h.target_end,
-                            "",h.bit_score,"","extra"),'\t'))
+            println(io,join((h.seqid,h.model,h.strand,"","",h.start,h.stop,
+                            "",h.bits,"","extra"),'\t'))
         end
     end
 end
@@ -105,7 +105,7 @@ function benchmark_main()
     function external(cmd, output, err)
         run(pipeline(cmd; stdout=output, stderr=err))
     end
-    opts = (progress=false,threaded=threads>1)
+    opts = (progress=false,threaded=threads>1,evalue=1e-5)
     cold = @elapsed hits = findrna(fasta;opts...)
     println("FindRNA first call: ",cold," seconds, ",length(hits)," hits")
     flush(stdout)

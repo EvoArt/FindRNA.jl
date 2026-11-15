@@ -1,0 +1,6 @@
+# Public NCBI nucleotide accessions for real-genome parity checks (both CI and Athena).
+CP148752.1
+CP148753.1
+JBBHKO010000001.1
+NZ_JBBHKP010000001.1
+NZ_JBBHKQ010000001.1
