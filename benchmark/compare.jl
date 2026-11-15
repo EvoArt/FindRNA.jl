@@ -127,7 +127,14 @@ function benchmark_main()
             @test !isempty(refs)
             compare_hits(hits,refs)
         end
-        println("Modern Barrnap is reported separately; CM/HMM parity is not asserted.")
+        if isempty(ARGS)
+            @testset "Modern Barrnap synthetic fixture" begin
+                @test !isempty(br)
+                compare_hits(hits,br)
+            end
+        else
+            println("Modern Barrnap real-genome calls are reported separately; CM/HMM parity is not asserted.")
+        end
     else
         occursin("0.9",bv) || error("Expected barrnap 0.9; set BARRNAP_MODERN=true for CM comparison")
         @testset "Reference hit identity, strand and endpoints" begin
