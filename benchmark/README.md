@@ -21,7 +21,7 @@ Julia's first-call time includes compilation; warm Julia and subprocess timings
 are reported separately. Subprocess timings include startup and output writing.
 This is an end-to-end benchmark, not a claim about isolated DP kernel speed.
 
-For **modern Barrnap 1.10.5**, use a separate installation and set
+For **modern Barrnap 1.10.6** (the current Bioconda recipe/tag), use a separate installation and set
 `BARRNAP_MODERN=true`. Its covariance models and different pipeline mean raw
 calls and timings are reported separately; HMMER parity remains checked.
 Modern and 0.9 runs must use different result directories.
@@ -33,8 +33,9 @@ the existing TikzMakie Athena configuration. Adjust for the current cluster.
 Stage this repository, resolve dependencies on the login node, load the reference
 executables, and submit `sbatch benchmark/athena.sbatch [genome.fna]`.
 The script runs on a compute node and records the job ID in the output directory.
-No Athena measurements have yet been obtained: the SSH connectivity check timed out.
+The first Athena run is staged in `~/findrna-20261115`; results are retained per input.
 
 HMMER 3.4: https://hmmer.org/archive.html
 
-Barrnap 0.9 and 1.10.5: https://github.com/tseemann/barrnap/releases
+Barrnap: https://github.com/tseemann/barrnap/releases (latest labelled release 1.10.5;
+the newer 1.10.6 tag is packaged by Bioconda).

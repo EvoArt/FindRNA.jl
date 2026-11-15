@@ -1,5 +1,5 @@
 # Required references are never silently skipped. Output files retain raw evidence.
-using FindRNA, ProfileHMMs, Test, Statistics, SHA, TOML
+using FindRNA, ProfileHMMs, Test, SHA, TOML
 include(joinpath(@__DIR__, "..", "test", "fixtures.jl"))
 
 function parse_nhmmer(path)
@@ -48,6 +48,36 @@ function compare_hits(got, ref; coordinate_tolerance=30)
     deltas
 end
 
+function write_differences(path, got, refs)
+    remaining = collect(eachindex(got))
+    open(path,"w") do io
+        println(io,"target\tmodel\tstrand\treference_start\treference_end\tjulia_start\tjulia_end\tendpoint_error\tjulia_bits\treference_bits\tstatus")
+        for r in refs
+            candidates = filter(i -> (got[i].target_name,got[i].query_name,got[i].strand) ==
+                                     (r.target,r.model,r.strand),remaining)
+            if isempty(candidates)
+                println(io,join((r.target,r.model,r.strand,r.start,r.stop,"","","","",r.bits,"missing"),'\t'))
+                continue
+            end
+            errs = [max(abs(got[i].target_start-r.start),abs(got[i].target_end-r.stop)) for i in candidates]
+            k = argmin(errs); i = candidates[k]; h = got[i]
+            filter!(!=(i),remaining)
+            println(io,join((r.target,r.model,r.strand,r.start,r.stop,h.target_start,h.target_end,
+                            errs[k],h.bit_score,r.bits,errs[k]<=30 ? "matched" : "coordinates"),'\t'))
+        end
+        for i in remaining
+            h = got[i]
+            println(io,join((h.target_name,h.query_name,h.strand,"","",h.target_start,h.target_end,
+                            "",h.bit_score,"","extra"),'\t'))
+        end
+    end
+end
+
+function median_time(xs)
+    s = sort(xs); n = length(s)
+    isodd(n) ? s[cld(n,2)] : (s[n÷2]+s[n÷2+1])/2
+end
+
 function benchmark_main()
     out = abspath(get(ENV,"FINDRNA_RESULTS",joinpath(@__DIR__,"results")))
     mkpath(out)
@@ -60,7 +90,11 @@ function benchmark_main()
     repeats > 0 || error("BENCH_REPEATS must be positive")
     hv = read(`$hmmer -h`,String)
     occursin("HMMER 3.4",hv) || error("HMMER 3.4 required; got: $hv")
-    bv = read(pipeline(`$barrnap --version`,stderr=stdout),String)
+    version_path = joinpath(out,"barrnap-version.txt")
+    open(version_path,"w") do io
+        run(pipeline(`$barrnap --version`; stdout=io,stderr=io))
+    end
+    bv = read(version_path,String)
     write(joinpath(out,"versions.txt"),"Julia $VERSION\n$hv\n$bv")
     tbl = joinpath(out,"nhmmer.tbl")
     gff = joinpath(out,"barrnap.gff")
@@ -78,13 +112,15 @@ function benchmark_main()
     bt = [@elapsed(external(bacmd,gff,joinpath(out,"barrnap.stderr"))) for _ in 1:repeats]
     write_gff(joinpath(out,"findrna.gff"),hits)
     refs = parse_nhmmer(tbl); br = parse_gff(gff)
+    write_differences(joinpath(out,"nhmmer-differences.tsv"),hits,refs)
+    write_differences(joinpath(out,"barrnap-differences.tsv"),hits,br)
     report = Dict("julia"=>string(VERSION),"threads"=>threads,"repeats"=>repeats,
         "input_sha256"=>bytes2hex(sha256(read(fasta))),"model_sha256"=>bytes2hex(sha256(read(hmm))),
         "findrna_first_call_seconds"=>cold,"findrna_warm_seconds"=>jt,
         "nhmmer_process_seconds"=>nt,"barrnap_process_seconds"=>bt,
         "findrna_hits"=>length(hits),"nhmmer_hits"=>length(refs),"barrnap_hits"=>length(br))
     open(joinpath(out,"timings.toml"),"w") do io; TOML.print(io,report); end
-    println("Median seconds: FindRNA warm=",median(jt),"; nhmmer=",median(nt),"; barrnap=",median(bt))
+    println("Median seconds: FindRNA warm=",median_time(jt),"; nhmmer=",median_time(nt),"; barrnap=",median_time(bt))
     if get(ENV,"BARRNAP_MODERN","false") == "true"
         # Different models/algorithms: report all raw calls; no fabricated parity.
         @testset "HMMER reference" begin

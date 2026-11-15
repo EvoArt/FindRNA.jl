@@ -7,7 +7,7 @@
 #SBATCH --time=01:00:00
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:?}"
-export PATH="$HOME/julia-1.12.7/bin:$PWD/tools/bin:$PATH"
+export PATH="$HOME/julia-1.12.7/bin:$PWD/tools/bin:$HOME/miniforge3/envs/barrnap/bin:$PATH"
 export JULIA_NUM_THREADS=4
 export BENCH_THREADS=4
 export BENCH_REPEATS=3
