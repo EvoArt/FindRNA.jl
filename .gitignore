@@ -1,0 +1,25 @@
+# Local environments, downloaded tools, research data and archived experiments.
+Manifest.toml
+**/Manifest.toml
+/legacy/
+/.local/
+/hmmer-3.4/
+/hmmer.tar.gz
+/genomes/
+/5sp_barrnap_results/
+/143313/
+/143619/
+/study_11284_012425-054439/
+/*.fasta
+/*.fa
+/*.fna
+/*.faa
+/*.hmm
+/*.gbk
+/*.biom
+/*.jld2
+/*.jl
+/benchmark/results/
+*.cov
+*.mem
+.DS_Store

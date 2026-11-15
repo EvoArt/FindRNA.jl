@@ -1,0 +1,33 @@
+name: Modern Barrnap comparison
+on: [workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      JULIA_NUM_THREADS: '1'
+      BENCH_THREADS: '1'
+      BARRNAP_MODERN: 'true'
+      FINDRNA_RESULTS: benchmark/results/modern
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: reference
+          create-args: >-
+            -c conda-forge -c bioconda
+            hmmer=3.4 barrnap=1.10.6
+      - run: julia --startup-file=no --project=. scripts/develop.jl
+      - run: julia --startup-file=no --project=. benchmark/compare.jl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: modern-barrnap-output-and-timings
+          path: benchmark/results

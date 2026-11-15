@@ -1,0 +1,58 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Julia ${{ matrix.julia }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        julia: ['1.10', '1']
+    runs-on: ${{ matrix.os }}
+    env:
+      JULIA_NUM_THREADS: '2,1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia }}
+      - uses: julia-actions/cache@v2
+      - run: julia --startup-file=no --project=. scripts/develop.jl
+      - run: julia --startup-file=no --project=. scripts/test.jl
+  reference:
+    runs-on: ubuntu-latest
+    env:
+      JULIA_NUM_THREADS: '1'
+      BENCH_THREADS: '1'
+      BENCH_REPEATS: '3'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v2
+      - name: Install pinned HMMER and barrnap references
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential bedtools
+          curl -fsSL https://eddylab.org/software/hmmer/hmmer-3.4.tar.gz -o /tmp/hmmer.tar.gz
+          echo 'ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3  /tmp/hmmer.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/hmmer.tar.gz -C /tmp
+          cd /tmp/hmmer-3.4
+          ./configure --prefix="$HOME/hmmer"
+          make -j2
+          make install
+          echo "$HOME/hmmer/bin" >> "$GITHUB_PATH"
+          git clone --depth 1 --branch 0.9 https://github.com/tseemann/barrnap.git "$HOME/barrnap"
+          echo "$HOME/barrnap/bin" >> "$GITHUB_PATH"
+      - run: julia --startup-file=no --project=. scripts/develop.jl
+      - run: julia --startup-file=no --project=. benchmark/compare.jl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-output-and-timings
+          path: benchmark/results
